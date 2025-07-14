@@ -1,0 +1,15 @@
+Thanks to OpenMoji for their awesome open-source emoji font, which is licensed under the Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0) license. Created by the OpenMoji community and students of HfG Schwäbisch Gmünd.
+
+The Roboto Black font used in this project is licensed under the Open Font License. Read assets/fonts/OFL.txt for more information.
+
+Thanks to https://browser.engineering for their tutorial on how to make a web browser from scratch!
+
+Huge Thanks to Python for being the programming language used in this game.
+https://www.python.org/
+
+Huge thanks to Arcade and Pyglet for being the graphical engines used in this application.
+https://arcade.academy/
+https://pyglet.readthedocs.io/en/latest/
+
+Thanks to the following other libraries used in this game:
+pypresence - https://github.com/qwertyquerty/pypresence - Used for Discord Rich Presence
