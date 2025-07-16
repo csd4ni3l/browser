@@ -1,6 +1,6 @@
 import logging, traceback
 
-import pyglet.display
+import pyglet.display, arcade
 
 def dump_platform():
     import platform
@@ -41,7 +41,7 @@ def on_exception(*exc_info):
 
 def get_closest_resolution():
     allowed_resolutions = [(1366, 768), (1440, 900), (1600,900), (1920,1080), (2560,1440), (3840,2160)]
-    screen_width, screen_height = pyglet.display.get_display().width, pyglet.display.get_display().height
+    screen_width, screen_height = arcade.get_screens()[0].width, arcade.get_screens()[0].height
     if (screen_width, screen_height) in allowed_resolutions:
         if not allowed_resolutions.index((screen_width, screen_height)) == 0:
             closest_resolution = allowed_resolutions[allowed_resolutions.index((screen_width, screen_height))-1]
