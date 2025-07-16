@@ -208,17 +208,18 @@ class Renderer():
 
         self.batch = pyglet.graphics.Batch()
 
-    def on_resize(self, width, height):
+    def hide_out_of_bounds_labels(self):
         for widget in self.text_labels:
-            invisible = (widget.y + widget.content_height) > self.window.height * 0.95
+            invisible = (widget.y + widget.content_height) > self.window.height * 0.925
             # Doing visible flag set manually since it takes a lot of time            
             if widget.visible:
                 if invisible:
                     widget.visible = False
-            elif not widget.visible:
+            else:
                 if not invisible:
                     widget.visible = True
-                    
+
+    def on_resize(self, width, height):
         self.http_client.needs_render = True
 
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
@@ -226,20 +227,12 @@ class Renderer():
             return
         
         old_y = self.scroll_y
-        self.scroll_y = max(0, min(self.scroll_y - (scroll_y * self.scroll_y_speed), -self.smallest_y))
+        self.scroll_y = max(0, min(abs(self.scroll_y - (scroll_y * self.scroll_y_speed)), abs(self.smallest_y) - (self.window.height * 0.925) - 10)) # flip scroll direction
 
         for widget in self.text_labels:
-            widget.y += self.scroll_y - old_y
+            widget.y += (self.scroll_y - old_y)
 
-            invisible = (widget.y + widget.content_height) > self.window.height * 0.95
-
-            # Doing visible flag set manually since it takes a lot of time            
-            if widget.visible:
-                if invisible:
-                    widget.visible = False
-            elif not widget.visible:
-                if not invisible:
-                    widget.visible = True
+        self.hide_out_of_bounds_labels()
 
     def add_text(self, x, y, text, font, multiline=False):
         self.text_labels.append(
@@ -252,12 +245,12 @@ class Renderer():
                 multiline=multiline,
                 color=arcade.color.BLACK,
                 x=x,
-                y=(self.window.height * 0.95) - y,
+                y=(self.window.height * 0.925) - y,
                 batch=self.batch
             )
         )
 
-        if y < self.smallest_y:
+        if (self.window.height * 0.925) - y < self.smallest_y:
             self.smallest_y = y
 
     def update(self):
@@ -298,3 +291,5 @@ class Renderer():
             
             for x, y, text, font in self.display_list:
                 self.add_text(x, y, text, font)
+
+            self.hide_out_of_bounds_labels()
