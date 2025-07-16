@@ -43,17 +43,17 @@ jobs:
         run: |
           mkdir -p zip_output
           if [ "${{ runner.os }}" = "Windows" ]; then
-            powershell.exe -Command "Compress-Archive -Path 'build/run.dist/*' -DestinationPath 'zip_output csd4ni3lBrowser-${{ runner.os }}.zip'"
+            powershell.exe -Command "Compress-Archive -Path 'build/run.dist/*' -DestinationPath 'zip_output/csd4ni3lBrowser-${{ runner.os }}.zip'"
           else
             cd build/run.dist
-            zip -r "../../zip_output csd4ni3lBrowser-${{ runner.os }}.zip" .
+            zip -r "../../zip_output/csd4ni3lBrowser-${{ runner.os }}.zip" .
           fi
 
       - name: Upload Zipped Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: csd4ni3lBrowser-${{ runner.os }}.zip
-          path: zip_output csd4ni3lBrowser-${{ runner.os }}.zip
+          path: zip_output/csd4ni3lBrowser-${{ runner.os }}.zip
   release:
     name: Create GitHub Release
     needs: build
@@ -87,6 +87,6 @@ jobs:
           git push origin latest
 
       - name: Create the new release
-        run: gh release create latest downloads/** csd4ni3lBrowser-*.zip --title "Latest Build" --notes "Most recent multi-platform builds of csd4ni3lBrowser"
+        run: gh release create latest downloads/**/csd4ni3lBrowser-*.zip --title "Latest Build" --notes "Most recent multi-platform builds of csd4ni3lBrowser"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
