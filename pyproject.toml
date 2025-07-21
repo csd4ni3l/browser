@@ -5,7 +5,7 @@ description = "csd4ni3l-browser"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "arcade==3.3.2",
+    "arcade==3.2.0",
     "pypresence>=4.3.0",
     "ujson>=5.10.0",
 ]
