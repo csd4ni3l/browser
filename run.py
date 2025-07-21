@@ -1,3 +1,6 @@
+import os, certifi
+os.environ['SSL_CERT_FILE'] = certifi.where() # Fix SSL not working
+
 import pyglet
 
 pyglet.options.debug_gl = False

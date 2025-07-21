@@ -4,6 +4,8 @@ arcade==3.2.0
     # via csd4ni3l-browser (pyproject.toml)
 attrs==25.3.0
     # via pytiled-parser
+certifi==2025.7.14
+    # via csd4ni3l-browser (pyproject.toml)
 cffi==1.17.1
     # via pymunk
 pillow==11.0.0
