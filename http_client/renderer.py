@@ -1,21 +1,30 @@
-import arcade, arcade.gui, pyglet, os, ujson
+import arcade, pyglet
 
-from utils.constants import token_pattern, emoji_pattern
+from utils.constants import BLOCK_ELEMENTS, token_pattern, emoji_pattern
+from utils.utils import get_color_from_name, hex_to_rgb
 
 from http_client.connection import HTTPClient
-from http_client.html_parser import HTML, Text, Element
-
-BLOCK_ELEMENTS = [
-    "html", "body", "article", "section", "nav", "aside",
-    "h1", "h2", "h3", "h4", "h5", "h6", "hgroup", "header",
-    "footer", "address", "p", "hr", "pre", "blockquote",
-    "ol", "ul", "menu", "li", "dl", "dt", "dd", "figure",
-    "figcaption", "main", "div", "table", "form", "fieldset",
-    "legend", "details", "summary"
-]
+from http_client.html_parser import CSSParser, Text, Element, style, cascade_priority, replace_symbols
 
 HSTEP = 13
 VSTEP = 18
+
+font_cache = {}
+class DrawText:
+    def __init__(self, x1, y1, text, font, color):
+        self.top = y1
+        self.left = x1
+        self.text = text
+        self.font = font
+        self.color = color
+    
+class DrawRect:
+    def __init__(self, x1, y1, width, height, color):
+        self.top = y1
+        self.left = x1
+        self.width = width
+        self.height = height
+        self.color = color
 
 class BlockLayout:
     def __init__(self, node, parent, previous):
@@ -27,12 +36,20 @@ class BlockLayout:
         self.display_list = []
         self.line = []
         
-        self.font_cache = {}
-
         self.x, self.y, self.width, self.height = None, None, None, None
 
     def paint(self):
-        return self.display_list
+        cmds = []
+        if self.layout_mode() == "inline":
+            bgcolor = self.node.style.get("background-color", "transparent")
+            if bgcolor != "transparent":
+                rect = DrawRect(self.x, self.y, self.width, self.height, hex_to_rgb(bgcolor) if bgcolor.startswith("#") else get_color_from_name(bgcolor))
+                cmds.append(rect)
+
+            for x, y, word, font, color in self.display_list:
+                cmds.append(DrawText(x, y, word, font, color))
+
+        return cmds
 
     def layout_mode(self):
         if isinstance(self.node, Text):
@@ -65,9 +82,6 @@ class BlockLayout:
         else:
             self.cursor_x = 0
             self.cursor_y = 0
-            self.weight = "normal"
-            self.style = "roman"
-            self.size = 16
 
             self.line = []
             self.recurse(self.node)
@@ -77,89 +91,68 @@ class BlockLayout:
             child.layout()
 
         if mode == "block":
-            self.height = sum([
-                child.height for child in self.children])
+            self.height = sum([child.height for child in self.children])
         else:
             self.height = self.cursor_y
 
-    def ensure_font(self, size, weight, style, emoji):
-        if not (size, weight, style, emoji) in self.font_cache:
-            self.font_cache[(size, weight, style, emoji)] = pyglet.font.load("Roboto", size, weight, style == "italic") if not emoji else pyglet.font.load("OpenMoji Color", size, weight, style == "italic")
+    def ensure_font(self, font_family, size, weight, style, emoji):
+        if not (font_family, size, weight, style, emoji) in font_cache:
+            font_cache[(font_family, size, weight, style, emoji)] = pyglet.font.load(font_family, size, weight, style == "italic") if not emoji else pyglet.font.load("OpenMoji Color", size, weight, style == "italic")
         
-        return self.font_cache[(size, weight, style, emoji)]
+        return font_cache[(font_family, size, weight, style, emoji)]
 
-    def word(self, word: str, emoji=False):
-        font = self.ensure_font(self.size, self.weight, self.style, emoji)
+    def recurse(self, node):
+        if isinstance(node, Text):
+            word_list = [match.group(0) for match in token_pattern.finditer(node.text)]
+
+            for word in word_list:
+                if emoji_pattern.fullmatch(word):
+                    self.word(self.node, word, emoji=True)
+                else:
+                    self.word(self.node, replace_symbols(word))
+        else:
+            if node.tag == "br":
+                self.flush()
+
+            for child in node.children:
+                self.recurse(child)
+
+    def word(self, node, word: str, emoji=False):
+        weight = node.style["font-weight"]
+        style = node.style["font-style"]
+        font_family = node.style["font-family"]
+        style = "roman" if style == "normal" else style
+        size = int(float(node.style["font-size"][:-2]))
+        color = get_color_from_name(node.style["color"])
+
+        font = self.ensure_font(font_family, size, weight, style, emoji)
 
         w = font.get_text_size(word + ("  " if not emoji else " "))[0]
         
         if self.cursor_x + w > self.width:
             self.flush()
 
-        self.line.append((self.cursor_x, word, font))
+        self.line.append((self.cursor_x, word, font, color))
         self.cursor_x += w + font.get_text_size(" ")[0]
  
     def flush(self):
         if not self.line:
             return
 
-        fonts_on_line = [font for x, word, font in self.line]
+        fonts_on_line = [font for x, word, font, color in self.line]
         max_ascent = max(font.ascent for font in fonts_on_line)
         max_descent = min(font.descent for font in fonts_on_line)
 
-        baseline = self.cursor_y + 1.25 * max_ascent
+        baseline = self.cursor_y + 2 * max_ascent
 
-        for rel_x, word, font in self.line:
+        for rel_x, word, font, color in self.line:
             x = self.x + rel_x
             y = self.y + baseline - font.ascent
-            self.display_list.append((x, y, word, font))
+            self.display_list.append((x, y, word, font, color))
 
         self.cursor_x = 0
         self.line = []
-        self.cursor_y = baseline + 1.25 * max_descent
-
-    def recurse(self, tree):
-        if isinstance(tree, Text):
-            if "{" in tree.text or "}" in tree.text:
-                return
-            
-            word_list = [match.group(0) for match in token_pattern.finditer(tree.text)]
-
-            for word in word_list:
-                if emoji_pattern.fullmatch(word):
-                    self.word(word, emoji=True)
-                else:
-                    self.word(word)
-        else:
-            self.open_tag(tree.tag)
-            for child in tree.children:
-                self.recurse(child)
-            self.close_tag(tree.tag)
-
-    def open_tag(self, tag):
-        if tag == "i":
-            self.style = "italic"
-        elif tag == "b":
-            self.weight = "bold"
-        elif tag == "small":
-            self.size -= 2
-        elif tag == "big":
-            self.size += 4
-        elif tag == "br":
-            self.flush()
-    
-    def close_tag(self, tag):
-        if tag == "i":
-            self.style = "roman"
-        elif tag == "b":
-            self.weight = "normal"
-        elif tag == "small":
-            self.size += 2
-        elif tag == "big":
-            self.size -= 4
-        elif tag == "p":
-            self.flush()
-            self.cursor_y += VSTEP
+        self.cursor_y = baseline + 2 * max_descent
 
 class DocumentLayout:
     def __init__(self, node):
@@ -191,7 +184,7 @@ class Renderer():
     def __init__(self, http_client: HTTPClient, window: arcade.Window):
         self.content = ''
         self.request_scheme = 'http'
-
+        self.window = window
         self.http_client = http_client
 
         self.scroll_y = 0
@@ -199,18 +192,17 @@ class Renderer():
         self.allow_scroll = False
         self.smallest_y = 0
 
-        self.text_labels: list[pyglet.text.Label] = []
+        self.widgets: list[pyglet.text.Label] = []
         self.text_to_create = []
 
-        self.window = window
         self.window.on_mouse_scroll = self.on_mouse_scroll
         self.window.on_resize = self.on_resize
 
         self.batch = pyglet.graphics.Batch()
 
     def hide_out_of_bounds_labels(self):
-        for widget in self.text_labels:
-            invisible = (widget.y + widget.content_height) > self.window.height * 0.925
+        for widget in self.widgets:
+            invisible = (widget.y + (widget.content_height if not isinstance(widget, pyglet.shapes.Rectangle) else widget.height)) > self.window.height * 0.925
             # Doing visible flag set manually since it takes a lot of time            
             if widget.visible:
                 if invisible:
@@ -220,22 +212,23 @@ class Renderer():
                     widget.visible = True
 
     def on_resize(self, width, height):
-        self.http_client.needs_render = True
+        if self.http_client.css_rules:
+            self.http_client.needs_render = True
 
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
         if not self.allow_scroll:
             return
         
         old_y = self.scroll_y
-        self.scroll_y = max(0, min(abs(self.scroll_y - (scroll_y * self.scroll_y_speed)), abs(self.smallest_y) - (self.window.height * 0.925) - 10)) # flip scroll direction
+        self.scroll_y = max(0, min(abs(self.scroll_y - (scroll_y * self.scroll_y_speed)), abs(self.smallest_y) - (self.window.height * 0.925) + 5)) # flip scroll direction
 
-        for widget in self.text_labels:
+        for widget in self.widgets:
             widget.y += (self.scroll_y - old_y)
 
         self.hide_out_of_bounds_labels()
 
-    def add_text(self, x, y, text, font, multiline=False):
-        self.text_labels.append(
+    def add_text(self, x, y, text, font, color, multiline=False):
+        self.widgets.append(
             pyglet.text.Label(
                 text=text,
                 font_name=font.name,
@@ -243,7 +236,7 @@ class Renderer():
                 weight=font.weight,
                 font_size=font.size,
                 multiline=multiline,
-                color=arcade.color.BLACK,
+                color=color,
                 x=x,
                 y=(self.window.height * 0.925) - y,
                 batch=self.batch
@@ -253,6 +246,18 @@ class Renderer():
         if (self.window.height * 0.925) - y < self.smallest_y:
             self.smallest_y = y
 
+    def add_background(self, left, top, width, height, color):
+        self.widgets.append(
+            pyglet.shapes.Rectangle(
+                left,
+                (self.window.height * 0.925) - top - height,
+                width,
+                height,
+                color,
+                batch=self.batch
+            )
+        )
+
     def update(self):
         if not self.http_client.needs_render:
             return
@@ -260,36 +265,27 @@ class Renderer():
         self.http_client.needs_render = False
         self.allow_scroll = True
 
-        for child in self.text_labels:
+        for child in self.widgets:
             child.delete()
             del child
         
-        self.text_labels.clear()
+        self.widgets.clear()
         self.smallest_y = 0
         
         if self.http_client.view_source or self.http_client.scheme == "file":
             self.add_text(x=HSTEP, y=0, text=self.http_client.content_response, font=pyglet.font.load("Roboto", 16), multiline=True)
         elif self.http_client.scheme == "http" or self.http_client.scheme == "https":
-            if not os.path.exists("http_cache"):
-                os.makedirs("http_cache")
+            style(self.http_client.nodes, sorted(self.http_client.css_rules + CSSParser(open("assets/css/browser.css").read()).parse(), key=cascade_priority))
 
-            cache_filename = f"{self.http_client.scheme}_{self.http_client.host}_{self.http_client.port}_{self.http_client.path.replace('/', '_')}.json"
-
-            if cache_filename in os.listdir("http_cache"):
-                with open(f"http_cache/{cache_filename}", "r") as file:
-                    self.nodes = HTML.from_json(ujson.load(file))
-            else:
-                self.nodes = HTML(self.http_client.content_response).parse()
-                with open(f"http_cache/{cache_filename}", "w") as file:
-                    json_list = HTML.to_json(self.nodes)
-                    file.write(ujson.dumps(json_list))
-
-            self.document = DocumentLayout(self.nodes)
+            self.document = DocumentLayout(self.http_client.nodes)
             self.document.layout()
-            self.display_list = []
-            paint_tree(self.document, self.display_list)
+            self.cmds = []
+            paint_tree(self.document, self.cmds)
             
-            for x, y, text, font in self.display_list:
-                self.add_text(x, y, text, font)
+            for cmd in self.cmds:
+                if isinstance(cmd, DrawText):
+                    self.add_text(cmd.left, cmd.top, cmd.text, cmd.font, cmd.color)
+                elif isinstance(cmd, DrawRect):
+                    self.add_background(cmd.left, cmd.top, cmd.width, cmd.height, cmd.color)
 
             self.hide_out_of_bounds_labels()

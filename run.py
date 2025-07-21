@@ -14,8 +14,11 @@ sys.excepthook = on_exception
 pyglet.resource.path.append(os.getcwd())
 pyglet.font.add_directory('./assets/fonts')
 
-if not log_dir in os.listdir():
+if not os.path.exists(log_dir):
     os.makedirs(log_dir)
+
+if not os.path.exists("http_cache"):
+    os.makedirs("http_cache")
 
 while len(os.listdir(log_dir)) >= 5:
     files = [(file, os.path.getctime(os.path.join(log_dir, file))) for file in os.listdir(log_dir)]

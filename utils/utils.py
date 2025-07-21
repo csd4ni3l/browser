@@ -63,3 +63,23 @@ class FakePyPresence():
         ...
     def close(self, *args, **kwargs):
         ...
+
+def hex_to_rgb(hex_color):
+    hex_color = hex_color.lstrip('#')
+    if len(hex_color) != 6:
+        return (127, 127, 127)
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+def get_color_from_name(rgb_name):
+    rgb_name = rgb_name.upper()
+    if rgb_name.startswith("LIGHT"):
+        color_name = rgb_name.split("LIGHT")[1]
+        color_value = arcade.csscolor.__dict__.get(f"LIGHT_{color_name}")
+        if not color_value:
+            arcade.color.__dict__.get(f"LIGHT_{color_name}")
+        
+        if color_value:
+            return color_value
+        
+    color_value = arcade.csscolor.__dict__.get(rgb_name)
+    return color_value if color_value else arcade.color.__dict__.get(rgb_name, arcade.color.GRAY)
