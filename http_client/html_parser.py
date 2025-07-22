@@ -173,7 +173,8 @@ def get_inline_styles(node):
 
     for node in node.children:
         if isinstance(node, Element) and node.tag == "style":
-            all_rules.extend(CSSParser(node.children[0].text).parse()) # node's first children will just be a text element that contains the css
+            if isinstance(node.children[0], Text):
+                all_rules.extend(CSSParser(node.children[0].text).parse()) # node's first children will just be a text element that contains the css
 
         all_rules.extend(get_inline_styles(node))
     
