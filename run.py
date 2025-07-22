@@ -20,8 +20,11 @@ pyglet.font.add_directory('./assets/fonts')
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 
-if not os.path.exists("http_cache"):
-    os.makedirs("http_cache")
+if not os.path.exists("html_cache"):
+    os.makedirs("html_cache")
+
+if not os.path.exists("css_cache"):
+    os.makedirs("css_cache")
 
 while len(os.listdir(log_dir)) >= 5:
     files = [(file, os.path.getctime(os.path.join(log_dir, file))) for file in os.listdir(log_dir)]

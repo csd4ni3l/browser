@@ -281,6 +281,30 @@ class CSSParser:
                     break
         return rules
     
+    @classmethod
+    def convert_selector_to_json(self, selector):
+        if isinstance(selector, TagSelector):
+            return ["tag", selector.tag, selector.priority]
+        elif isinstance(selector, DescendantSelector):
+            return ["descendant", self.convert_selector_to_json(selector.ancestor), self.convert_selector_to_json(selector.descendant)]
+        
+    @classmethod
+    def get_selector_from_json(self, selector_list):
+        if selector_list[0] == "tag":
+            selector = TagSelector(selector_list[1])
+            selector.priority = selector_list[2]
+            return selector
+        elif selector_list[0] == "descendant":
+            return DescendantSelector(self.get_selector_from_json(selector_list[1]), self.get_selector_from_json(selector_list[2]))
+
+    @classmethod
+    def to_json(self, rules_list: list[tuple[TagSelector | DescendantSelector, dict[str, str]]]):
+        return [[self.convert_selector_to_json(rule[0]), rule[1]] for rule in rules_list]
+
+    @classmethod
+    def from_json(self, rules_list):
+        return [(self.get_selector_from_json(rule[0]), rule[1]) for rule in rules_list]
+
 def style(node, rules):
     node.style = {}
 

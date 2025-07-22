@@ -2,6 +2,21 @@ import socket, logging, ssl, threading, os, ujson, time
 
 from http_client.html_parser import HTML, CSSParser, Element, tree_to_list, get_inline_styles
 
+def resolve_url(scheme, host, port, path, url):
+    if "://" in url: return url
+    if not url.startswith("/"):
+        dir, _ = path.rsplit("/", 1)
+        while url.startswith("../"):
+            _, url = url.split("/", 1)
+            if "/" in dir:
+                dir, _ = dir.rsplit("/", 1)
+        url = f"{dir}/{url}"
+
+    if url.startswith("//"):
+        return f"{scheme}:{url}"
+    else:
+        return f"{scheme}://{host}:{port}{url}"
+
 class HTTPClient():
     def __init__(self):
         self.scheme = "http"
@@ -57,7 +72,7 @@ class HTTPClient():
             self.request_headers["Host"] = self.host
 
         cache_filename = f"{self.scheme}_{self.host}_{self.port}_{self.path.replace('/', '_')}.json"
-        if os.path.exists(f"http_cache/{cache_filename}"):
+        if os.path.exists(f"html_cache/{cache_filename}"):
             threading.Thread(target=self.parse, daemon=True).start()
             return
         
@@ -175,7 +190,7 @@ class HTTPClient():
     def parse(self):
         self.css_rules = []
 
-        cache_filename = f"{self.scheme}_{self.host}_{self.port}_{self.path.replace('/', '_')}.json"
+        html_cache_filename = f"{self.scheme}_{self.host}_{self.port}_{self.path.replace('/', '_')}.json"
 
         original_scheme = self.scheme
         original_host = self.host
@@ -183,12 +198,12 @@ class HTTPClient():
         original_path = self.path
         original_response = self.content_response
 
-        if cache_filename in os.listdir("http_cache"):
-            with open(f"http_cache/{cache_filename}", "r") as file:
+        if html_cache_filename in os.listdir("html_cache"):
+            with open(f"html_cache/{html_cache_filename}", "r") as file:
                 self.nodes = HTML.from_json(ujson.load(file))
         else:
             self.nodes = HTML(self.content_response).parse()
-            with open(f"http_cache/{cache_filename}", "w") as file:
+            with open(f"html_cache/{html_cache_filename}", "w") as file:
                 json_list = HTML.to_json(self.nodes)
                 file.write(ujson.dumps(json_list))
 
@@ -204,22 +219,22 @@ class HTTPClient():
         for css_link in css_links:
             self.content_response = ""
             
-            if "://" in css_link: 
-                self.get_request(css_link, self.request_headers, True)
-            
-            if not css_link.startswith("/"):
-                dir, _ = self.path.rsplit("/", 1)
-                css_link = dir + "/" + css_link
+            css_cache_filename = f"{self.scheme}_{self.host}_{self.port}_{self.path.replace('/', '_')}_{css_link.replace('/', '_')}.json" # we need to include the other variables so for example /styles.css wouldnt be cached for all websites
 
-            if css_link.startswith("//"):
-                self.get_request(self.scheme + ":" + css_link, self.request_headers, True)
+            if css_cache_filename in os.listdir("css_cache"):
+                with open(f"css_cache/{css_cache_filename}", "r") as file:
+                    rules = CSSParser.from_json(ujson.load(file))
             else:
-                self.get_request(self.scheme + "://" + self.host + ":" + str(self.port) + css_link, self.request_headers, True)
-            
-            while not self.content_response:
-                time.sleep(0.025)
+                self.get_request(resolve_url(self.scheme, self.host, self.port, self.path, css_link), self.request_headers, css=True)
+                while not self.content_response:
+                    time.sleep(0.025)
 
-            self.css_rules.extend(CSSParser(self.content_response).parse())
+                rules = CSSParser(self.content_response).parse()
+
+                with open(f"css_cache/{css_cache_filename}", "w") as file:
+                    ujson.dump(CSSParser.to_json(rules), file)
+
+            self.css_rules.extend(rules)
 
         self.css_rules.extend(get_inline_styles(self.nodes))
 

@@ -180,4 +180,5 @@ test*.py
 logs/
 logs
 settings.json
-http_cache/
+html_cache/
+css_cache/
