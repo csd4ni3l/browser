@@ -247,6 +247,7 @@ class Renderer():
         self.scroll_y_speed = 50
         self.allow_scroll = False
         self.smallest_y = 0
+        self.document = None
 
         self.widgets: list[pyglet.text.Label] = []
         self.text_to_create = []
@@ -286,6 +287,9 @@ class Renderer():
         self.hide_out_of_bounds_labels()
 
     def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
+        if not self.document:
+            return
+        
         y -= self.scroll_y
         
         objs = [
