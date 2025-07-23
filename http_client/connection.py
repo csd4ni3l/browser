@@ -219,7 +219,7 @@ class HTTPClient():
         for css_link in css_links:
             self.content_response = ""
             
-            css_cache_filename = f"{self.scheme}_{self.host}_{self.port}_{self.path.replace('/', '_')}_{css_link.replace('/', '_')}.json" # we need to include the other variables so for example /styles.css wouldnt be cached for all websites
+            css_cache_filename = f"{self.scheme}_{self.host}_{self.port}_{self.path.replace('/', '_')}_{css_link.replace('/', '_').replace('@', '_').replace('/', '_').replace(';', '_').replace('&', '_').replace('?', '_').replace(':', '')}.json" # we need to include the other variables so for example /styles.css wouldnt be cached for all websites
 
             if css_cache_filename in os.listdir("css_cache"):
                 with open(f"css_cache/{css_cache_filename}", "r") as file:

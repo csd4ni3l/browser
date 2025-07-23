@@ -57,7 +57,7 @@ class Main(arcade.gui.UIView):
         super().on_show_view()
 
         self.search_bar = self.add_widget(arcade.gui.UIInputText(x=self.window.width / 4, y=self.window.height * 0.95, width=self.window.width / 2, height=self.window.height * 0.035, font_name="Roboto", font_size=14, text_color=arcade.color.BLACK, caret_color=arcade.color.BLACK, border_color=arcade.color.BLACK))        
-        self.renderer = Renderer(self.http_client, self.window)
+        self.renderer = Renderer(self.http_client, self)
 
     def on_key_press(self, symbol, modifiers):
         self.search_bar.text = self.search_bar.text.encode("ascii", "ignore").decode().strip("\n")

@@ -1,6 +1,6 @@
-import arcade, pyglet
+import arcade, pyglet, platform
 
-from utils.constants import BLOCK_ELEMENTS, token_pattern, emoji_pattern
+from utils.constants import BLOCK_ELEMENTS, token_pattern, emoji_pattern, INHERITED_PROPERTIES
 from utils.utils import get_color_from_name, hex_to_rgb
 
 from http_client.connection import HTTPClient, resolve_url
@@ -13,6 +13,8 @@ from functools import lru_cache
 HSTEP = 13
 VSTEP = 18
 
+SPACE_MULTIPLIER = 0.25 if not platform.system() == "Windows" else 0.33
+
 font_cache = {}
 
 def ensure_font(font_family, size, weight, style, emoji):
@@ -23,7 +25,7 @@ def ensure_font(font_family, size, weight, style, emoji):
 
 @lru_cache
 def get_space_width(font: BaseFont):
-    return font.get_text_size(" ")[0]
+    return font.get_text_size("a")[0] * SPACE_MULTIPLIER # i have to do this because space width is 0 on Windows (of course, why wouldnt Windows ruin everything?)
 
 class DrawText:
     def __init__(self, x1, y1, text, font, color):
@@ -97,7 +99,10 @@ class TextLayout():
         style = self.node.style["font-style"]
         font_family = self.node.style["font-family"]
         style = "roman" if style == "normal" else style
-        size = int(float(self.node.style["font-size"][:-2]))
+        if not self.node.style["font-size"].endswith("em") and not self.node.style["font-size"].endswith("rem"):
+            size = int(float(self.node.style["font-size"][:-2]))
+        else:
+            size = int(INHERITED_PROPERTIES["font-size"][:-2])
         self.font = ensure_font(font_family, size, weight, style, self.emoji)
 
         self.width = self.font.get_text_size(self.word + ("  " if not self.emoji else " "))[0]
@@ -187,7 +192,10 @@ class BlockLayout:
         style = node.style["font-style"]
         font_family = node.style["font-family"]
         style = "roman" if style == "normal" else style
-        size = int(float(node.style["font-size"][:-2]))
+        if not node.style["font-size"].endswith("em") and not node.style["font-size"].endswith("rem"):
+            size = int(float(node.style["font-size"][:-2]))
+        else:
+            size = int(INHERITED_PROPERTIES["font-size"][:-2])
 
         font = ensure_font(font_family, size, weight, style, emoji)
 
@@ -237,10 +245,11 @@ def paint_tree(layout_object, display_list):
         paint_tree(child, display_list)
 
 class Renderer():
-    def __init__(self, http_client: HTTPClient, window: arcade.Window):
+    def __init__(self, http_client: HTTPClient, view_class):
         self.content = ''
         self.request_scheme = 'http'
-        self.window = window
+        self.view_class = view_class
+        self.window: arcade.Window = view_class.window
         self.http_client = http_client
 
         self.scroll_y = 0
@@ -310,6 +319,7 @@ class Renderer():
             elif elt.tag == "a" and "href" in elt.attributes:
                 url = resolve_url(self.http_client.scheme, self.http_client.host, self.http_client.port, self.http_client.path, elt.attributes["href"])
                 self.http_client.get_request(url, self.http_client.request_headers)
+                self.view_class.search_bar.text = url
 
             elt = elt.parent
 
