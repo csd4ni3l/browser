@@ -69,6 +69,7 @@ class Main(arcade.gui.UIView):
 
     def search(self):
         url = self.search_bar.text
+
         if url.startswith("http://") or url.startswith("https://") or url.startswith("view-source:"):
             self.http_client.get_request(url, {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"})
         elif url.startswith("file://"):
@@ -81,6 +82,9 @@ class Main(arcade.gui.UIView):
             self.http_client.scheme = "http"
         elif url == "about:config" or url == "about:settings":
             self.settings()
+        else:
+            self.http_client.get_request(f"https://{url}", {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"})
+            self.search_bar.text = f"https://{url}"
 
         self.search_bar.text = self.search_bar.text.encode("ascii", "ignore").decode().strip("\n")
 
