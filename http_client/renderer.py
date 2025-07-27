@@ -3,8 +3,8 @@ import arcade, pyglet, platform
 from utils.constants import BLOCK_ELEMENTS, token_pattern, emoji_pattern, INHERITED_PROPERTIES
 from utils.utils import get_color_from_name, hex_to_rgb
 
-from http_client.connection import HTTPClient, resolve_url
-from http_client.html_parser import CSSParser, Text, Element, style, cascade_priority, replace_symbols, tree_to_list
+from http_client.connection import HTTPClient
+from http_client.html_parser import CSSParser, Text, Element, style, cascade_priority
 
 from pyglet.font.base import Font as BaseFont
 
@@ -245,11 +245,11 @@ def paint_tree(layout_object, display_list):
         paint_tree(child, display_list)
 
 class Renderer():
-    def __init__(self, http_client: HTTPClient, view_class):
+    def __init__(self, http_client: HTTPClient, window):
         self.content = ''
         self.request_scheme = 'http'
-        self.view_class = view_class
-        self.window: arcade.Window = view_class.window
+        self.window: arcade.Window = window
+        self.current_window_size = self.window.size
         self.http_client = http_client
 
         self.scroll_y = 0
@@ -260,10 +260,6 @@ class Renderer():
 
         self.widgets: list[pyglet.text.Label] = []
         self.text_to_create = []
-
-        self.window.on_mouse_scroll = self.on_mouse_scroll
-        self.window.on_mouse_press = self.on_mouse_press
-        self.window.on_resize = self.on_resize
 
         self.batch = pyglet.graphics.Batch()
 
@@ -279,8 +275,8 @@ class Renderer():
                     widget.visible = True
 
     def on_resize(self, width, height):
-        if self.http_client.css_rules:
-            self.http_client.needs_render = True
+        self.current_window_size = self.window.size
+        self.http_client.needs_render = True
 
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
         if not self.allow_scroll:
@@ -289,39 +285,10 @@ class Renderer():
         old_y = self.scroll_y
         self.scroll_y = max(0, min(abs(self.scroll_y - (scroll_y * self.scroll_y_speed)), abs(self.smallest_y) - (self.window.height * 0.925) + 5)) # flip scroll direction
 
-
         for widget in self.widgets:
             widget.y += (self.scroll_y - old_y)
 
         self.hide_out_of_bounds_labels()
-
-    def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
-        if not self.document:
-            return
-        
-        y -= self.scroll_y
-        
-        objs = [
-            obj for obj in tree_to_list(self.document, [])
-            if obj.x <= x < obj.x + obj.width
-            and ((self.window.height * 0.925) - obj.y - obj.height) <= y < ((self.window.height * 0.925) - obj.y)
-        ]
-
-        if not objs:
-            return
-        
-        
-        elt = objs[-1].node
-
-        while elt:
-            if isinstance(elt, Text):
-                pass
-            elif elt.tag == "a" and "href" in elt.attributes:
-                url = resolve_url(self.http_client.scheme, self.http_client.host, self.http_client.port, self.http_client.path, elt.attributes["href"])
-                self.http_client.get_request(url, self.http_client.request_headers)
-                self.view_class.search_bar.text = url
-
-            elt = elt.parent
 
     def add_text(self, x, y, text, font, color, multiline=False):
         self.widgets.append(
@@ -331,6 +298,7 @@ class Renderer():
                 italic=font.italic,
                 weight=font.weight,
                 font_size=font.size,
+                width=self.window.width * 0.5 if multiline else None,
                 multiline=multiline,
                 color=color,
                 x=x,
@@ -369,19 +337,21 @@ class Renderer():
         self.smallest_y = 0
         
         if self.http_client.view_source or self.http_client.scheme == "file":
-            self.add_text(x=HSTEP, y=0, text=self.http_client.content_response, font=pyglet.font.load("Roboto", 16), multiline=True)
+            self.add_text(x=HSTEP, y=self.window.height * 0.05, text=self.http_client.content_response, font=pyglet.font.load("Roboto", 16), color=arcade.color.BLACK, multiline=True)
+        
         elif self.http_client.scheme == "http" or self.http_client.scheme == "https":
-            style(self.http_client.nodes, sorted(self.http_client.css_rules + CSSParser(open("assets/css/browser.css").read()).parse(), key=cascade_priority))
+            if self.http_client.nodes:
+                style(self.http_client.nodes, sorted(self.http_client.css_rules + CSSParser(open("assets/css/browser.css").read()).parse(), key=cascade_priority))
 
-            self.document = DocumentLayout(self.http_client.nodes)
-            self.document.layout()
-            self.cmds = []
-            paint_tree(self.document, self.cmds)
-            
-            for cmd in self.cmds:
-                if isinstance(cmd, DrawText):
-                    self.add_text(cmd.left, cmd.top, cmd.text, cmd.font, cmd.color)
-                elif isinstance(cmd, DrawRect):
-                    self.add_background(cmd.left, cmd.top, cmd.width, cmd.height, cmd.color)
+                self.document = DocumentLayout(self.http_client.nodes)
+                self.document.layout()
+                self.cmds = []
+                paint_tree(self.document, self.cmds)
+                
+                for cmd in self.cmds:
+                    if isinstance(cmd, DrawText):
+                        self.add_text(cmd.left, cmd.top, cmd.text, cmd.font, cmd.color)
+                    elif isinstance(cmd, DrawRect):
+                        self.add_background(cmd.left, cmd.top, cmd.width, cmd.height, cmd.color)
 
-            self.hide_out_of_bounds_labels()
+                self.hide_out_of_bounds_labels()

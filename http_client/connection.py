@@ -28,7 +28,7 @@ class HTTPClient():
         self.response_headers = {}
         self.response_http_version = None
         self.response_status = None
-        self.nodes = []
+        self.nodes = None
         self.css_rules = []
         self.content_response = ""
         self.view_source = False
@@ -71,7 +71,7 @@ class HTTPClient():
         if "Host" not in self.request_headers:
             self.request_headers["Host"] = self.host
 
-        cache_filename = f"{self.scheme}_{self.host}_{self.port}_{self.path.replace('/', '_')}.json"
+        cache_filename = f"{self.scheme}_{self.host}_{self.port}_{self.path.replace('/', '_')}.html"
         if os.path.exists(f"html_cache/{cache_filename}"):
             threading.Thread(target=self.parse, daemon=True).start()
             return
@@ -190,7 +190,14 @@ class HTTPClient():
     def parse(self):
         self.css_rules = []
 
-        html_cache_filename = f"{self.scheme}_{self.host}_{self.port}_{self.path.replace('/', '_')}.json"
+        html_cache_filename = f"{self.scheme}_{self.host}_{self.port}_{self.path.replace('/', '_')}.html"
+
+        if html_cache_filename in os.listdir("html_cache"):
+            with open(f"html_cache/{html_cache_filename}", "r") as file:
+                self.content_response = file.read()
+        else:
+            with open(f"html_cache/{html_cache_filename}", "w") as file:
+                file.write(self.content_response)
 
         original_scheme = self.scheme
         original_host = self.host
@@ -198,15 +205,8 @@ class HTTPClient():
         original_path = self.path
         original_response = self.content_response
 
-        if html_cache_filename in os.listdir("html_cache"):
-            with open(f"html_cache/{html_cache_filename}", "r") as file:
-                self.nodes = HTML.from_json(ujson.load(file))
-        else:
-            self.nodes = HTML(self.content_response).parse()
-            with open(f"html_cache/{html_cache_filename}", "w") as file:
-                json_list = HTML.to_json(self.nodes)
-                file.write(ujson.dumps(json_list))
-
+        self.nodes = HTML(self.content_response).parse()
+        
         css_links = [
             node.attributes["href"]
             for node in tree_to_list(self.nodes, [])

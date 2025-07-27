@@ -36,7 +36,8 @@ class HTML():
         for c in self.raw_html:
             if c == "<":
                 in_tag = True
-                if text: self.add_text(text) # start of new tag means before everything was content/text
+                if (not self.unfinished or not self.unfinished[-1].tag == "style") and text: 
+                    self.add_text(text) # start of new tag means before everything was content/text
                 text = ""
             elif c == ">":
                 in_tag = False
@@ -173,6 +174,9 @@ def get_inline_styles(node):
 
     for node in node.children:
         if isinstance(node, Element) and node.tag == "style":
+            if not node.children:
+                continue
+
             if isinstance(node.children[0], Text):
                 all_rules.extend(CSSParser(node.children[0].text).parse()) # node's first children will just be a text element that contains the css
 
