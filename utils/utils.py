@@ -1,8 +1,5 @@
-import logging, traceback
-
 from functools import lru_cache
-
-import pyglet.display, arcade
+import logging, arcade, traceback, pyglet.display
 
 def dump_platform():
     import platform
