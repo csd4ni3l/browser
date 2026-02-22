@@ -1,6 +1,36 @@
-use std::{collections::HashMap, net::TcpStream, io::{Read, Write}, fs, thread};
-use native_tls::TlsConnector;
-use crate::html_parser::{Node, Rule};
+use std::{collections::HashMap, net::TcpStream, io::{Read, Write}, fs};
+use native_tls::{TlsConnector, TlsStream};
+use crate::http_client::html_parser::{Node, Rule};
+
+enum Connection {
+    Plain(TcpStream),
+    Tls(TlsStream<TcpStream>),
+}
+
+impl Read for Connection {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Connection::Plain(s) => s.read(buf),
+            Connection::Tls(s) => s.read(buf),
+        }
+    }
+}
+
+impl Write for Connection {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            Connection::Plain(s) => s.write(buf),
+            Connection::Tls(s) => s.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            Connection::Plain(s) => s.flush(),
+            Connection::Tls(s) => s.flush(),
+        }
+    }
+}
 
 pub fn resolve_url(scheme: &str, host: &str, port: u16, path: &str, mut url: &str) -> String {
     if url.contains("://") {
@@ -29,7 +59,6 @@ pub fn resolve_url(scheme: &str, host: &str, port: u16, path: &str, mut url: &st
         format!("{}://{}:{}{}", scheme, host, port, resolved_path)
     }
 }
-
 pub struct HTTPClient {
     pub scheme: String,
     pub host: String,
@@ -46,16 +75,16 @@ pub struct HTTPClient {
     pub view_source: bool,
     pub redirect_count: u32,
     pub needs_render: bool,
-    pub tcp_stream: Option<Box<dyn Read + Write>>
+    pub tcp_stream: Option<Connection>
 }
 
 impl HTTPClient {
-    pub fn new(scheme: String, host: String, path: String, port: u32) -> HTTPClient {
+    pub fn new() -> HTTPClient {
         HTTPClient {
-            scheme,
-            host,
-            path,
-            port,
+            scheme: String::new(),
+            host: String::new(),
+            path: String::new(),
+            port: 0,
             request_headers: HashMap::new(),
             response_explanation: None,
             response_headers: HashMap::new(),
@@ -76,9 +105,9 @@ impl HTTPClient {
     }
 
     pub fn get_request(&mut self, url: &String, headers: HashMap<String, String>, css: bool) {
-        let mut parsed_url = url;
+        let mut parsed_url = url.clone();
         if parsed_url.starts_with("view-source:") {
-            parsed_url = parsed_url.split_once("view-source:")[1];
+            parsed_url = parsed_url.split_once("view-source:").unwrap().1.to_string();
             self.view_source = true;
         }
         else {
@@ -98,7 +127,8 @@ impl HTTPClient {
         }
 
         if self.host.contains(":") {
-            let (host_str, port_str) = self.host.split_once(":").unwrap();
+            let temp_host = self.host.clone();
+            let (host_str, port_str) = temp_host.split_once(":").unwrap();
 
             self.host = host_str.to_string();
             self.port = port_str.parse().unwrap();
@@ -121,15 +151,12 @@ impl HTTPClient {
         self.tcp_stream = None;
 
         if !self.request_headers.contains_key("Host") {
-            self.request_headers["Host"] = self.host;
+            self.request_headers.insert("Host".to_string(), self.host.clone());
         }
 
         let cache_filename = format!("{}_{}_{}_{}.html", self.scheme, self.host, self.port, self.path.replace("/", "_"));
         if std::fs::exists(format!("html_cache/{}", cache_filename)).unwrap() {
-            std::thread(move || {
-                self.parse()
-            });
-
+            self.parse();
             return;
         }
 
@@ -137,10 +164,10 @@ impl HTTPClient {
 
         if self.scheme == "https" {
             let connector = TlsConnector::new().unwrap();
-            self.tcp_stream = Some(Box::new(connector.connect(self.host.as_str(), stream).unwrap()));   
+            self.tcp_stream = Some(Connection::Tls(connector.connect(self.host.as_str(), tcp).unwrap()));   
         }
         else {
-            self.tcp_stream = Some(Box::new(tcp));
+            self.tcp_stream = Some(Connection::Plain(tcp));
         }
 
     }
@@ -179,7 +206,7 @@ impl HTTPClient {
         self.response_headers = headers;
     }
 
-    pub fn parse(self) {
+    pub fn parse(&mut self) {
 
     }
 }
