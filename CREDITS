@@ -4,12 +4,7 @@ The Roboto Black font used in this project is licensed under the Open Font Licen
 
 Thanks to https://browser.engineering for their tutorial on how to make a web browser from scratch!
 
-Huge Thanks to Python for being the programming language used in this game.
-https://www.python.org/
+Huge Thanks to Rust for being the programming language used in this app.
+https://www.rust-lang.org/
 
-Huge thanks to Arcade and Pyglet for being the graphical engines used in this application.
-https://arcade.academy/
-https://pyglet.readthedocs.io/en/latest/
-
-Thanks to the following other libraries used in this game:
-pypresence - https://github.com/qwertyquerty/pypresence - Used for Discord Rich Presence
+Huge thanks to Bevy for being the graphical engine / ECS used in this app.
