@@ -46,12 +46,12 @@ jobs:
 
       - name: Verify executable (Linux)
         if: matrix.os == 'ubuntu-22.04'
-        run: test target/release/soundboard
+        run: test target/release/csd4ni3l-browser
         shell: bash
 
       - name: Verify executable (Windows)
         if: matrix.os == 'windows-latest'
-        run: Test-Path target\release\soundboard.exe
+        run: Test-Path target\release\csd4ni3l-browser.exe
         shell: pwsh
 
       - name: Upload build artifact
@@ -59,8 +59,8 @@ jobs:
         with:
           name: ${{ matrix.platform }}
           path: |
-            target/release/soundboard
-            target/release/soundboard.exe
+            target/release/csd4ni3l-browser
+            target/release/csd4ni3l-browser.exe
 
   release:
     runs-on: ubuntu-latest
@@ -91,5 +91,5 @@ jobs:
               --notes "Automated build for $TAG"
           fi
           # Upload the executables directly (no zip files)
-          gh release upload "$TAG" downloads/linux/soundboard --clobber
-          gh release upload "$TAG" downloads/windows/soundboard.exe --clobber
+          gh release upload "$TAG" downloads/linux/csd4ni3l-browser --clobber
+          gh release upload "$TAG" downloads/windows/csd4ni3l-browser.exe --clobber
