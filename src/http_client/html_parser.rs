@@ -1,4 +1,5 @@
 use crate::constants::*;
+use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -23,6 +24,13 @@ pub enum Node {
 }
 
 impl Node {
+    pub fn attributes(&self) -> Option<&HashMap<String, String>> {
+        match self {
+            Node::Element(e) => Some(&e.attributes),
+            Node::Text(_) => None
+        }
+    }
+
     pub fn tag(&self) -> Option<&str> {
         match self {
             Node::Element(e) => Some(&e.tag),
@@ -215,6 +223,7 @@ impl HTML {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct TagSelector {
     pub tag: String,
     pub priority: i32
@@ -236,15 +245,16 @@ impl TagSelector {
         }
     }
 }
-    
+
+#[derive(Serialize, Deserialize)]    
 pub struct DescendantSelector {
-    pub ancestor: Box<Rule>,
-    pub descendant: Box<Rule>,
+    pub ancestor: Box<CSSSelector>,
+    pub descendant: Box<CSSSelector>,
     pub priority: i32
 }
 
 impl DescendantSelector {
-    pub fn new(ancestor: Rule, descendant: Rule) -> DescendantSelector {
+    pub fn new(ancestor: CSSSelector, descendant: CSSSelector) -> DescendantSelector {
         let new_priority = ancestor.priority() + descendant.priority();
         DescendantSelector {
             ancestor: Box::new(ancestor),
@@ -277,31 +287,33 @@ impl DescendantSelector {
     }   
 }
 
-pub enum Rule {
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum CSSSelector {
     TagSelector(TagSelector),
     DescendantSelector(DescendantSelector),
 }
 
-impl Rule {
+impl CSSSelector {
     pub fn priority(&self) -> i32 {
         match self {
-            Rule::TagSelector(s) => s.priority,
-            Rule::DescendantSelector(s) => s.priority,
+            CSSSelector::TagSelector(s) => s.priority,
+            CSSSelector::DescendantSelector(s) => s.priority,
         }
     }
     pub fn matches(&self, node: &Node) -> bool {
         match self {
-            Rule::TagSelector(s) => s.matches(node),
-            Rule::DescendantSelector(s) => s.matches(node),
+            CSSSelector::TagSelector(s) => s.matches(node),
+            CSSSelector::DescendantSelector(s) => s.matches(node),
         }
     }
 }
 
-pub fn cascade_priority(rule: (Rule, HashMap<String, String>)) -> i32 {
+pub fn cascade_priority(rule: (CSSSelector, HashMap<String, String>)) -> i32 {
     rule.0.priority()
 }
 
-pub fn get_inline_styles(node: &Node) -> Vec<(Rule, HashMap<String, String>)> {
+pub fn get_inline_styles(node: &Node) -> Vec<(CSSSelector, HashMap<String, String>)> {
     let mut all_rules = vec![];
 
     if let Node::Element(elem) = node {
@@ -327,7 +339,7 @@ pub struct CSSParser {
 }
 
 impl CSSParser {
-    fn new (s: String) -> CSSParser {
+    pub fn new (s: String) -> CSSParser {
         CSSParser {
             chars: s.chars().collect(),
             len: s.chars().count(),
@@ -423,22 +435,22 @@ impl CSSParser {
         pairs
     }
     
-    fn selector(&mut self) -> Result<Rule, String> {
-        let mut out = Rule::TagSelector(TagSelector::new(self.word()?.to_lowercase()));
+    fn selector(&mut self) -> Result<CSSSelector, String> {
+        let mut out = CSSSelector::TagSelector(TagSelector::new(self.word()?.to_lowercase()));
         
         self.whitespace();
         
         while self.i < self.len && self.chars[self.i] != '{' {
             let tag = self.word()?;
-            let descendant = Rule::TagSelector(TagSelector::new(tag.to_lowercase()));
-            out = Rule::DescendantSelector(DescendantSelector::new(out, descendant));
+            let descendant = CSSSelector::TagSelector(TagSelector::new(tag.to_lowercase()));
+            out = CSSSelector::DescendantSelector(DescendantSelector::new(out, descendant));
             self.whitespace();
         }
         
         Ok(out)
     }
 
-    pub fn parse(&mut self) -> Vec<(Rule, HashMap<String, String>)> {
+    pub fn parse(&mut self) -> Vec<(CSSSelector, HashMap<String, String>)> {
         let mut rules = vec![];
         while self.i < self.len {
             self.whitespace();
@@ -479,4 +491,17 @@ impl CSSParser {
         return rules;
     }
 
+}
+
+pub fn tree_to_vec<'a>(tree: &'a Node, vec: &mut Vec<&'a Node>) {
+    vec.push(tree);
+    
+    for child in tree.children() {
+        tree_to_vec(child, vec);
+    }           
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CSSCache {
+    pub css_cache: Vec<(CSSSelector, HashMap<String, String>)>
 }

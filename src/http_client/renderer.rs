@@ -32,6 +32,16 @@ impl Renderer {
         }
     }
 
-    pub fn render(&mut self, http_client: &HTTPClient, ui: &mut Ui) {
+    fn update_content(&mut self, http_client: &mut HTTPClient) {
+        self.widgets.clear()
+    }
+
+    pub fn render(&mut self, http_client: &mut HTTPClient, ui: &mut Ui) {
+        if http_client.needs_render {
+            self.update_content(http_client);
+            http_client.needs_render = false;
+        }
+
+        ui.label(http_client.content_response.clone());
     }
 }

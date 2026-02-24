@@ -5,7 +5,7 @@ use bevy_egui::{EguiContextSettings, EguiContexts, EguiPrimaryContextPass, EguiS
 pub mod constants;
 pub mod http_client;
 use crate::constants::DEFAULT_HEADERS;
-use crate::http_client::{connection::HTTPClient, renderer::Renderer};
+use crate::http_client::{html_parser::{tree_to_vec, Node}, connection::HTTPClient, renderer::Renderer};
 
 struct Tab {
     url: String,
@@ -41,6 +41,31 @@ impl Tab {
         } else {
             self.http_client.get_request(&format!("https://{}", self.url), DEFAULT_HEADERS.clone(), false);
         }
+
+        self.update_title();
+    }
+
+    fn update_title(&mut self){
+        let mut flattened_tree = vec![];
+        tree_to_vec(&self.http_client.node.as_ref().unwrap(), &mut flattened_tree);   
+
+        self.title = flattened_tree.iter()
+            .find(|node| {
+                if let Node::Text(text_node) = node {
+                    if let Some(parent) = &text_node.parent {
+                        return parent.tag().map(|t| t == "title").unwrap_or(false);
+                    }
+                }
+                false
+            })
+            .and_then(|node| {
+                if let Node::Text(text_node) = node {
+                    Some(text_node.text.clone())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| self.url.clone())
     }
 }
 
@@ -126,10 +151,17 @@ fn draw(mut contexts: EguiContexts, mut app_state: ResMut<AppState>) -> Result {
             }
 
             if let Some(set_active_tab_to) = set_active_tab_to {
+                // set previous's url
+                let active_tab = app_state.active_tab.clone();
+                app_state.tabs[active_tab].url = app_state.current_url.clone();
+
                 app_state.active_tab = set_active_tab_to;
+
+                // set new's url back
+                app_state.current_url = app_state.tabs[set_active_tab_to].url.clone();
             }
 
-            if ui.button("+" ).clicked() {
+            if ui.button("+").clicked() {
                 let new_tab = Tab::new("about:blank");
 
                 app_state.tabs.push(new_tab);
@@ -139,13 +171,18 @@ fn draw(mut contexts: EguiContexts, mut app_state: ResMut<AppState>) -> Result {
         let available_width = ui.available_width();
         let available_height = ui.available_height();
 
-        ui.add_sized([available_width, available_height / 20.0], egui::TextEdit::singleline(&mut app_state.current_url)).request_focus();
+        let response = ui.add_sized([available_width, available_height / 20.0], egui::TextEdit::singleline(&mut app_state.current_url));
+        if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+            let current_url = app_state.current_url.clone();
+            let active_tab = app_state.active_tab;
+            app_state.tabs[active_tab].request(current_url);
+        }
     });
 
     egui::CentralPanel::default().show(ctx, |ui| {
         let active_tab_index = app_state.active_tab.clone();
         let tab = &mut app_state.tabs[active_tab_index];
-        tab.renderer.render(&tab.http_client, ui);
+        tab.renderer.render(&mut tab.http_client, ui);
     });
     
     Ok(())
