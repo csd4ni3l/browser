@@ -4,11 +4,11 @@ arcade==3.3.3
     # via csd4ni3l-browser (pyproject.toml)
 attrs==25.3.0
     # via pytiled-parser
-certifi==2025.7.14
+certifi==2026.10.18
     # via csd4ni3l-browser (pyproject.toml)
 cffi==1.17.1
     # via pymunk
-pillow==11.3.0
+pillow==13.0.0
     # via arcade
 pycparser==2.22
     # via cffi
@@ -22,5 +22,5 @@ pytiled-parser==2.2.9
     # via arcade
 typing-extensions==4.14.1
     # via pytiled-parser
-ujson==5.10.0
+ujson==5.13.0
     # via csd4ni3l-browser (pyproject.toml)
