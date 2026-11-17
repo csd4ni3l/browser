@@ -54,7 +54,17 @@ jobs:
         run: ccache --show-stats
       - name: Zip
         run: |
-          zip -j csd4ni3l_browser_linux.zip build/csd4ni3lBrowser.bin
+          set -euo pipefail
+          # The onefile artifact has no extension; Nuitka only keeps a .bin copy
+          # inside the intermediate <script>.dist directory, which is not shipped.
+          BIN="build/csd4ni3lBrowser"
+          if [ ! -f "$BIN" ]; then
+            BIN=$(find build -maxdepth 1 -type f \( -name "csd4ni3lBrowser" -o -name "csd4ni3lBrowser.bin" \) | head -n 1)
+          fi
+          test -n "$BIN" && test -f "$BIN"
+          [ "$BIN" = "build/csd4ni3lBrowser" ] || mv -- "$BIN" "build/csd4ni3lBrowser"
+          zip -j csd4ni3l_browser_linux.zip "build/csd4ni3lBrowser"
+          rm -rf build/*.dist build/*.build
       - name: Release
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
