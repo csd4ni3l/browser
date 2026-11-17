@@ -2,25 +2,25 @@
 #    uv pip compile pyproject.toml -o requirements.txt
 arcade==3.3.3
     # via csd4ni3l-browser (pyproject.toml)
-attrs==25.3.0
+attrs==26.1.0
     # via pytiled-parser
-certifi==2025.7.14
+certifi==2026.10.23
     # via csd4ni3l-browser (pyproject.toml)
-cffi==1.17.1
+cffi==2.1.1
     # via pymunk
 pillow==11.3.0
     # via arcade
-pycparser==2.22
+pycparser==3.12
     # via cffi
-pyglet==2.1.6
+pyglet==2.1.19
     # via arcade
 pymunk==6.9.0
     # via arcade
-pypresence==4.3.0
+pypresence==4.6.2
     # via csd4ni3l-browser (pyproject.toml)
 pytiled-parser==2.2.9
     # via arcade
-typing-extensions==4.14.1
+typing-extensions==4.16.0
     # via pytiled-parser
-ujson==5.10.0
+ujson==6.1.0
     # via csd4ni3l-browser (pyproject.toml)
