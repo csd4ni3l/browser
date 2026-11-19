@@ -1,4 +1,4 @@
-import arcade, pyglet, platform
+import arcade, pyglet, platform, os
 
 from utils.constants import BLOCK_ELEMENTS, token_pattern, emoji_pattern, INHERITED_PROPERTIES
 from utils.utils import get_color_from_name, hex_to_rgb
@@ -9,6 +9,10 @@ from http_client.html_parser import CSSParser, Text, Element, style, cascade_pri
 from pyglet.font.base import Font as BaseFont
 
 from functools import lru_cache
+
+# Get the directory where this module is located
+_module_dir = os.path.dirname(os.path.abspath(__file__))
+_assets_dir = os.path.join(os.path.dirname(_module_dir), 'assets')
 
 HSTEP = 13
 VSTEP = 18
@@ -341,7 +345,7 @@ class Renderer():
         
         elif self.http_client.scheme == "http" or self.http_client.scheme == "https":
             if self.http_client.nodes:
-                style(self.http_client.nodes, sorted(self.http_client.css_rules + CSSParser(open("assets/css/browser.css").read()).parse(), key=cascade_priority))
+                style(self.http_client.nodes, sorted(self.http_client.css_rules + CSSParser(open(os.path.join(_assets_dir, "css", "browser.css")).read()).parse(), key=cascade_priority))
 
                 self.document = DocumentLayout(self.http_client.nodes)
                 self.document.layout()
