@@ -46,7 +46,7 @@ jobs:
             --include-data-files=CREDITS=CREDITS \
             --mode=onefile \
             --output-filename=csd4ni3lBrowser \
-            --nofollow-import-to="*tk*,_codecs,encodings,multiprocessing,gi" \
+            --nofollow-import-to="*tk*,_codecs,multiprocessing,gi" \
             --output-dir=build \
             --disable-plugins=tk-inter,multiprocessing,gi \
             run.py
